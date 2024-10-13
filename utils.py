@@ -38,6 +38,20 @@ class Hurst(object):
     def __call__(self):
         return self.h
 
+    def __add__(self, other):
+        if isinstance(other, Hurst):
+            return self.h + other.h
+        else:
+            return self.h + other
+
+    def __mul__(self, other):
+        if isinstance(other, Hurst):
+            return self.h * other.h
+        else:
+            return self.h * other
+
+    def __rmul__(self, other):
+        return self * other
 
 
 def c_h(hurst: Hurst) -> float:
@@ -59,7 +73,7 @@ def function_F(u: float, hurst: Hurst) -> float:
 
 
 def sigma_lognormal(exp_vix: float, exp_vix_squared: float) -> float:
-    """
+    r"""
     Compute the **variance** $\sigma^2$ of the lognormal approximation of the VIX
     """
     return - 2 * np.log(exp_vix) + np.log(exp_vix_squared)
@@ -118,3 +132,17 @@ def moment2_vix_sq(curve: VarianceCurve, delta: float,
         exp_theta = np.exp(theta_bar(u, t, volvol, hurst, T))
         return xi(u) * xi(t) * exp * exp_theta
     return dblquad(integrand, T, T + delta, T, T + delta)[0]
+
+
+def VIX_price(
+        curve: VarianceCurve,
+        exp_vix: float,
+        exp_vix_squared: float,
+        delta: float,
+        T: float = 1.
+) -> float:
+    xi = curve.get_curve()
+    integral = quad(xi, T, T + delta)[0]
+    sig = sigma_lognormal(exp_vix, exp_vix_squared)
+    return np.sqrt(integral / delta) * np.exp(-sig / 8.)
+
