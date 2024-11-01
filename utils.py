@@ -8,7 +8,7 @@ import numpy as np
 from scipy.special import gamma, hyp2f1
 from scipy.integrate import dblquad, quad
 
-DELTA = 30. / 252.  # number of days
+DELTA = 1. / 12.  # number of days
 
 
 class Hurst(object):
@@ -79,11 +79,31 @@ def sigma_lognormal(exp_vix: float, exp_vix_squared: float) -> float:
     return - 2 * np.log(exp_vix) + np.log(exp_vix_squared)
 
 
+def sigma_lognormal_jim(volvol: float, hurst: Hurst, T: float = 1., delta: float = DELTA) -> float:
+    r"""
+    Compute the **variance** $\tilde{sigma}^2$ of the lognormal approximation of the VIX,
+    using approximation 3.16
+    """
+    factor = 4 * volvol**2 * c_h(hurst)**2 / (delta**2 * hurst.hp**2)
+    def integrand(s):
+        inner = (T - s + delta)**hurst.hp - (T - s)**hurst.hp
+        return inner**2
+    return quad(integrand, 0, T)[0]
+
+
 def mu_lognormal(exp_vix: float, exp_vix_squared: float) -> float:
     """
     Compute the mean of the lognormal approximation of the VIX
     """
     return np.log(exp_vix) - sigma_lognormal(exp_vix, exp_vix_squared) / 2
+
+
+def mu_lognormal_jim(exp_vix: float, volvol: float, hurst: Hurst, T: float = 1., delta: float = DELTA) -> float:
+    """
+    Compute the mean of the lognormal approximation of the VIX
+    based on approximation 3.16
+    """
+    return np.log(exp_vix) - sigma_lognormal_jim(volvol, hurst, T, delta) / 2
 
 
 def theta(u: float,t: float,
@@ -96,7 +116,7 @@ def theta(u: float,t: float,
     return out * (frac1 + 2 * ((u - t) ** hurst.hm) * inner / (hurst.hp))
 
 
-def theta_bar(u: float,t: float,
+def theta_bar(u: float, t: float,
               volvol: float, hurst: Hurst,
               T: float = 1.) -> float:
     return 0 if u == t else theta(max(u, t), min(u, t), volvol, hurst, T)
@@ -145,4 +165,40 @@ def VIX_price(
     integral = quad(xi, T, T + delta)[0]
     sig = sigma_lognormal(exp_vix, exp_vix_squared)
     return np.sqrt(integral / delta) * np.exp(-sig / 8.)
+
+
+def VIX_price_jim(
+        curve: VarianceCurve,
+        volvol: float,
+        hurst: Hurst,
+        delta: float,
+        T: float = 1.
+) -> float:
+    xi = curve.get_curve()
+    integral = quad(xi, T, T + delta)[0]
+    sig = sigma_lognormal_jim(volvol, hurst, T, delta)
+    return np.sqrt(integral / delta) * np.exp(-sig / 8.)
+
+
+def VIX_price_jim_2(
+        curve: VarianceCurve,
+        eta: float,
+        hurst: Hurst,
+        delta: float,
+        T: float = 1.
+) -> float:
+    xi = curve.get_curve()
+    integral = quad(xi, T, T + delta)[0]
+    convexity = eta**2 * T**hurst.h2 * f_supH(delta / T, hurst)
+    return np.sqrt(integral / delta) * np.exp(-convexity / 8.)
+
+
+def f_supH(theta: float, hurst: Hurst, T: float = 1.) -> float:
+    dh = np.sqrt(2 * hurst.h) / (hurst.h + 0.5)
+    factor = dh**2 / theta**2
+    def integrand(x):
+        part1 = (1 + theta - x) ** hurst.hp
+        part2 = (1 - x) ** hurst.hp
+        return (part1 - part2) ** 2
+    return factor * quad(integrand, 0, T)[0]
 
