@@ -36,43 +36,62 @@ class DataLoader(object):
         self._reader_func = pl.read_csv if extension == 'csv' else pl.read_parquet
         
     def load_dates(self,
-                   dates: List[Union[str, dt.date]],
+                   start_date: Union[str, dt.date],
+                   end_date: Union[str, dt.date],
                    n_jobs: int = 1) -> pl.DataFrame:
         """
         Read and merge dataframes for given dates
         
         Parameters
         ----------
-        dates: list of str or datetime.date
-            Dates for which to read the data. If str, must be in format 'YYYYmmdd'
+        start_date, end_date: str or datetime.date
+            Dates for which to read the data. If str, must be in format 'YYYYmmdd'.
+            `start_date` is included, `end_date` is NOT!
         n_jobs: int, default=1
             Number of parallel workers to use (with joblib)
         """
-        if not isinstance(dates[0], str):
-            _dates = [x.strftime("%Y%m%d") for x in dates]
-        else:
-            _dates = deepcopy(dates)
+        dates = [
+            x.split("_")[-1].split(".")[0] for x in os.listdir(self.base_path)
+        ]
+        _start, _end = self._convert_date(start_date), self._convert_date(end_date)
+        dates = [d for d in dates if _start <= d < _end]
             
         def _read_date(dd):
-            return self._reader_func(f"{self.base_path}/impvol_{dd}.{self.extension}")
+            df = self._reader_func(
+                f"{self.base_path}/vixvol_{dd}.{self.extension}"
+            )
+            kwargs = {
+                'Date': pl.lit(dt.datetime.strptime(dd, "%Y%m%d")),
+            }
+            kwargs.update({
+                k: self.fix_nan_expr(k) for i, k in enumerate(df.columns)
+                if df.dtypes[i] == pl.String
+            })
+            return df.with_columns(**kwargs).drop_nulls()
         
         if n_jobs == 1:
-            return pl.concat([
-                _read_date(dd) for dd in _dates
-            ])
+            out = [_read_date(dd) for dd in dates]
         else:
             out = joblib.Parallel(n_jobs=n_jobs)(
-                joblib.delayed(_read_date)(dd) for dd in _dates
+                joblib.delayed(_read_date)(dd) for dd in dates
             )
-            return pl.concat(out)
+        return pl.concat(out)
         
-        def dump(self, merge_df: pl.DataFrame, date_name: str, n_jobs: int = 1) -> None:
-            _dates = merge_df[date_name].unique().sort().to_list()
-            
-            def _dump_day(dd):
-                _dd = dd.strftime("%Y%m%d")
-                pl.write_parquet(f"{self.base_path}/impvol_{_dd}.{self.extension}")
-                return
-            
-            for dd in _dates:
-                _dump_day(dd)
+    def dump(self, merge_df: pl.DataFrame, date_name: str, n_jobs: int = 1) -> None:
+        _dates = merge_df[date_name].unique().sort().to_list()
+        
+        def _dump_day(dd):
+            _dd = dd.strftime("%Y%m%d")
+            pl.write_parquet(f"{self.base_path}/vixvol_{_dd}.{self.extension}")
+            return
+        
+        for dd in _dates:
+            _dump_day(dd)
+
+    @staticmethod
+    def fix_nan_expr(col):
+        return pl.when(pl.col(col) == "NA").then(None).otherwise(pl.col(col)).cast(pl.Float64)
+
+    @staticmethod
+    def _convert_date(dd):
+        return dd.strftime("%Y%m%d") if isinstance(dd, dt.date) else dd

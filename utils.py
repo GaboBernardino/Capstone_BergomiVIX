@@ -7,6 +7,7 @@ Utility functions for Capstone project
 import numpy as np
 from scipy.special import gamma, hyp2f1
 from scipy.integrate import dblquad, quad
+from scipy.stats import norm
 
 DELTA = 1. / 12.  # number of days
 
@@ -201,4 +202,64 @@ def f_supH(theta: float, hurst: Hurst, T: float = 1.) -> float:
         part2 = (1 - x) ** hurst.hp
         return (part1 - part2) ** 2
     return factor * quad(integrand, 0, T)[0]
+
+
+def BSFormula(S, K, t, r, vol, callPutFlag):
+    """Black-Scholes formula for option pricing"""
+    d1 = (np.log(S / K) + (r + 0.5 * vol ** 2) * t) / (vol * np.sqrt(t))
+    d2 = d1 - vol * np.sqrt(t)
+    if callPutFlag == 1:  # Call option
+        price = S * norm.cdf(d1) - K * np.exp(-r * t) * norm.cdf(d2)
+    else:  # Put option
+        price = K * np.exp(-r * t) * norm.cdf(-d2) - S * norm.cdf(-d1)
+    return price
+
+
+def stineman_interp(xi, yi, x):
+    """
+    Perform Stineman interpolation for 1D data.
+    """
+    n = len(xi)
+    if n != len(yi):
+        raise ValueError("xi and yi must have the same length")
+    
+    # Sort the input data
+    idx = np.argsort(xi)
+    xi = xi[idx]
+    yi = yi[idx]
+    
+    # Compute slopes
+    dx = np.diff(xi)
+    dy = np.diff(yi)
+    m = dy / dx
+    
+    # Compute slopes at each point
+    s = np.zeros(n)
+    s[1:-1] = (m[:-1] * dx[1:] + m[1:] * dx[:-1]) / (dx[:-1] + dx[1:])
+    s[0] = m[0]
+    s[-1] = m[-1]
+    
+    # Perform the interpolation
+    y = np.interp(x, xi, yi)
+    for i, xi_val in enumerate(x):
+        # Find the interval
+        if xi_val <= xi[0]:
+            i1 = 0
+            i2 = 1
+        elif xi_val >= xi[-1]:
+            i1 = n - 2
+            i2 = n - 1
+        else:
+            i1 = np.searchsorted(xi, xi_val) - 1
+            i2 = i1 + 1
+        
+        h = xi[i2] - xi[i1]
+        t = (xi_val - xi[i1]) / h
+        h00 = (1 + 2 * t) * (1 - t) ** 2
+        h10 = t * (1 - t) ** 2
+        h01 = t ** 2 * (3 - 2 * t)
+        h11 = t ** 2 * (t - 1)
+        y[i] = h00 * yi[i1] + h10 * h * s[i1] + h01 * yi[i2] + h11 * h * s[i2]
+    
+    return y
 
