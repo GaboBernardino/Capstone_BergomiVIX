@@ -195,6 +195,9 @@ def VIX_price_jim_2(
 
 
 def f_supH(theta: float, hurst: Hurst, T: float = 1.) -> float:
+    """
+    Function defined in Jim's paper for VIX future approximation
+    """
     dh = np.sqrt(2 * hurst.h) / (hurst.h + 0.5)
     factor = dh**2 / theta**2
     def integrand(x):
@@ -204,7 +207,7 @@ def f_supH(theta: float, hurst: Hurst, T: float = 1.) -> float:
     return factor * quad(integrand, 0, T)[0]
 
 
-def BSFormula(S, K, t, r, vol, callPutFlag):
+def BSFormula(S, K, t, r, vol, callPutFlag: int):
     """Black-Scholes formula for option pricing"""
     d1 = (np.log(S / K) + (r + 0.5 * vol ** 2) * t) / (vol * np.sqrt(t))
     d2 = d1 - vol * np.sqrt(t)
@@ -215,7 +218,7 @@ def BSFormula(S, K, t, r, vol, callPutFlag):
     return price
 
 
-def stineman_interp(xi, yi, x):
+def stineman_interp(xi: np.array, yi: np.array, x: np.array):
     """
     Perform Stineman interpolation for 1D data.
     """
