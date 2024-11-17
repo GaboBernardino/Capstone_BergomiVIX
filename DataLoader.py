@@ -61,13 +61,15 @@ class DataLoader(object):
                 f"{self.base_path}/vixvol_{dd}.{self.extension}"
             )
             kwargs = {
-                'Date': pl.lit(dt.datetime.strptime(dd, "%Y%m%d")),
+                'Date': pl.lit(dt.datetime.strptime(dd, "%Y%m%d")).cast(pl.Datetime('ns')),
             }
             kwargs.update({
                 k: self.fix_nan_expr(k) for i, k in enumerate(df.columns)
                 if df.dtypes[i] == pl.String
             })
-            return df.with_columns(**kwargs).drop_nulls()
+            df = df.with_columns(**kwargs).drop_nulls()
+            df_selected = df.select(['', 'Expiry', 'Texp', 'Strike', 'Bid', 'Ask', 'Fwd', 'CallMid', 'Date'])
+            return df_selected
         
         if n_jobs == 1:
             out = [_read_date(dd) for dd in dates]
