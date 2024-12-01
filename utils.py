@@ -8,6 +8,7 @@ import numpy as np
 from scipy.special import gamma, hyp2f1
 from scipy.integrate import dblquad, quad
 from scipy.stats import norm
+import cvxpy as cp
 
 DELTA = 1. / 12.  # number of days
 
@@ -205,6 +206,13 @@ def f_supH(theta: float, hurst: Hurst, T: float = 1.) -> float:
         part2 = (1 - x) ** hurst.hp
         return (part1 - part2) ** 2
     return factor * quad(integrand, 0, T)[0]
+
+
+def cvxpy_exponential(a: float, x: cp.Variable):
+    """
+    Cvxpy-friendly exponentiation
+    """
+    return cp.exp(cp.multiply(cp.log(a), x))
 
 
 def BSFormula(S, K, t, r, vol, callPutFlag: int):

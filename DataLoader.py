@@ -91,7 +91,7 @@ class DataLoader(object):
             _dump_day(dd)
 
     @staticmethod
-    def filter_maturities(self, df: pl.DataFrame, threshold: int = 5) -> pl.DataFrame:
+    def filter_maturities(df: pl.DataFrame, threshold: int = 5) -> pl.DataFrame:
         """
         Remove for each day maturities with less than `threshold` observations
         """
@@ -100,9 +100,9 @@ class DataLoader(object):
         return _df.filter(ttm_count >= threshold)
 
     @staticmethod
-    def fix_nan_expr(self, col):
+    def fix_nan_expr(col):
         return pl.when(pl.col(col) == "NA").then(None).otherwise(pl.col(col)).cast(pl.Float64)
 
     @staticmethod
-    def _convert_date(self, dd):
+    def _convert_date(dd):
         return dd.strftime("%Y%m%d") if isinstance(dd, dt.date) else dd

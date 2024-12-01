@@ -77,62 +77,6 @@ def get_power_strip(
     return callIntegral, putIntegral
 
 
-def vix2(ivol_data: pd.DataFrame, expiry: int) -> float:
-    r"""
-    Estimate expectation of VIX squared via strip replication
-
-    Parameters
-    ----------
-    ivol_data: pd.DataFrame
-        Implied vol data as provided by OptionMetrics
-    expiry: int
-        Number representing the expiration date (as YYYYMMDD)
-
-    Returns
-    -------
-    float: estimation of $\mathbb{E}[\text{VIX}^2_T]$
-    """
-    df = ivol_data[ivol_data['Expiry'] == expiry]
-    texp = df['Texp'].values[0]
-    mask = ~df['Bid'].isna()
-    df = df.loc[mask]
-
-    # compute integrals for strip
-    call_integral, put_integral = get_power_strip(df, texp, 2)
-    # Calculate the result
-    fwd = df['Fwd'].values[0]  # Forward price
-    res = fwd ** 2 * (1 + 2 * (call_integral + put_integral))
-    return res
-
-
-def vix4(ivol_data: pd.DataFrame, expiry: int) -> float:
-    r"""
-    Estimate expectation of VIX quartic via strip replication
-
-    Parameters
-    ----------
-    ivol_data: pd.DataFrame
-        Implied vol data as provided by OptionMetrics
-    expiry: int
-        Number representing the expiration date (as YYYYMMDD)
-
-    Returns
-    -------
-    float: estimation of $\mathbb{E}[\text{VIX}^4_T]$
-    """
-    df = ivol_data[ivol_data['Expiry'] == expiry]
-    texp = df['Texp'].values[0]
-    mask = ~df['Bid'].isna()
-    df = df.loc[mask]
-
-    # compute integrals for strip
-    call_integral, put_integral = get_power_strip(df, texp)
-    # Calculate the result
-    fwd = df['Fwd'].values[0]  # Forward price
-    res = fwd ** 4 * (1 + 12 * (call_integral + put_integral))
-    return res
-
-
 def vix_power(ivol_data: pd.DataFrame, expiry: int, degree: int) -> float:
     r"""
     Estimate expectation of a VIX power via strip replication
@@ -175,3 +119,7 @@ def sigma_jim(texp: float, eta: float, hurst: utils.Hurst):
     r"""$\sigma^2$ estimated with Jim's formula"""
     return (eta**2) * (texp**hurst.h2) * utils.f_supH(utils.DELTA / texp, hurst)
 
+
+def sigma_jim_cvxpy(texp: float, eta: float, hurst: float):
+    r"""$\sigma^2$ estimated with Jim's formula"""
+    return (eta**2) * utils.cvxpy_exponential(texp, (2*hurst)) * utils.f_supH_floats(utils.DELTA / texp, hurst)
