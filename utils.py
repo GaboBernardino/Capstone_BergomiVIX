@@ -57,8 +57,8 @@ class Hurst(object):
 
 
 def c_h(hurst: Hurst) -> float:
-    """
-    Compute the constant C_H for a given Hurst exponent `hurst`
+    r"""
+    Compute the constant $C_H$ for a given Hurst exponent `hurst`
     """
     num = hurst.h2 * gamma(2 - hurst.hp)
     den = gamma(hurst.hp) * gamma(2 - hurst.h2)

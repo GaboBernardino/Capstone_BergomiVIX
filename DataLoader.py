@@ -62,13 +62,14 @@ class DataLoader(object):
             )
             kwargs = {
                 'Date': pl.lit(dt.datetime.strptime(dd, "%Y%m%d")).cast(pl.Datetime('ns')),
+                'k': (pl.col('Strike') / pl.col('Fwd')).log()
             }
             kwargs.update({
                 k: self.fix_nan_expr(k) for i, k in enumerate(df.columns)
                 if df.dtypes[i] == pl.String
             })
             df = df.with_columns(**kwargs).drop_nulls()
-            df_selected = df.select(['', 'Expiry', 'Texp', 'Strike', 'Bid', 'Ask', 'Fwd', 'CallMid', 'Date'])
+            df_selected = df.select(['Expiry', 'Texp', 'Strike', 'k', 'Bid', 'Ask', 'Fwd', 'CallMid', 'Date'])
             return df_selected
         
         if n_jobs == 1:
@@ -91,13 +92,22 @@ class DataLoader(object):
             _dump_day(dd)
 
     @staticmethod
-    def filter_maturities(df: pl.DataFrame, threshold: int = 5) -> pl.DataFrame:
+    def drop_few_strikes(df: pl.DataFrame, threshold: int = 2) -> pl.DataFrame:
         """
-        Remove for each day maturities with less than `threshold` observations
+        Remove for each day maturities with less than `threshold` strikes
         """
         _df = df.clone()
-        ttm_count = pl.col('Strike').unique().len().over(['Date', 'Expiry'])
-        return _df.filter(ttm_count >= threshold)
+        k_count = pl.col('Strike').unique().len().over(['Date', 'Expiry'])
+        return _df.filter(k_count >= threshold)
+    
+    # @staticmethod
+    # def filter_strikes(df: pl.DataFrame, threshold: int = 5) -> pl.DataFrame:
+    #     """
+    #     Remove for each day strikes with less than `threshold` observations
+    #     """
+    #     _df = df.clone()
+    #     ttm_count = pl.col('Texp').unique().len().over(['Date', 'Strike'])
+    #     return _df.filter(ttm_count >= threshold)
 
     @staticmethod
     def fix_nan_expr(col):
