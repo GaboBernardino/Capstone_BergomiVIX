@@ -1,1 +1,3 @@
 # Capstone_BergomiVIX
+
+## Whasuuuuuuuup

@@ -38,7 +38,8 @@ class DataLoader(object):
     def load_dates(self,
                    start_date: Union[str, dt.date],
                    end_date: Union[str, dt.date],
-                   n_jobs: int = 1) -> pl.DataFrame:
+                   n_jobs: int = 1,
+                   include_weekly: bool = True) -> pl.DataFrame:
         """
         Read and merge dataframes for given dates
         
@@ -49,6 +50,8 @@ class DataLoader(object):
             `start_date` is included, `end_date` is NOT!
         n_jobs: int, default=1
             Number of parallel workers to use (with joblib)
+        include_weekly: bool, default=True
+            If False, remove options with maturity below one month (= 1 / 12)
         """
         dates = [
             x.split("_")[-1].split(".")[0] for x in os.listdir(self.base_path)
@@ -69,7 +72,9 @@ class DataLoader(object):
                 if df.dtypes[i] == pl.String
             })
             df = df.with_columns(**kwargs).drop_nulls()
-            df_selected = df.select(['Expiry', 'Texp', 'Strike', 'k', 'Bid', 'Ask', 'Fwd', 'CallMid', 'Date'])
+            df_selected = df.select(
+                ['Expiry', 'Texp', 'Strike', 'k', 'Bid', 'Ask', 'Fwd', 'CallMid', 'Date']
+            ).with_columns(Mid=0.5*(pl.col('Bid') + pl.col('Ask')))
             return df_selected
         
         if n_jobs == 1:
@@ -78,7 +83,11 @@ class DataLoader(object):
             out = joblib.Parallel(n_jobs=n_jobs)(
                 joblib.delayed(_read_date)(dd) for dd in dates
             )
-        return pl.concat(out)
+        
+        out = pl.concat(out)
+        if not include_weekly:
+            out = out.filter(pl.col('Texp') >= 1. / 12.)
+        return out
         
     def dump(self, merge_df: pl.DataFrame, date_name: str, n_jobs: int = 1) -> None:
         _dates = merge_df[date_name].unique().sort().to_list()

@@ -8,7 +8,6 @@ import numpy as np
 from scipy.special import gamma, hyp2f1
 from scipy.integrate import dblquad, quad
 from scipy.stats import norm
-import cvxpy as cp
 
 DELTA = 1. / 12.  # number of days
 
@@ -17,15 +16,15 @@ class Hurst(object):
     """
     Hurst Exponent implementation
     """
-    
+
     def __init__(self, h: float):
         assert 0 <= h <= 1, "Hurst exponent must be between 0 and 1"
         self.h = h
-        
+
     @property
     def hp(self):
         return self.h + 0.5
-    
+
     @property
     def hm(self):
         return self.h - 0.5
@@ -57,8 +56,8 @@ class Hurst(object):
 
 
 def c_h(hurst: Hurst) -> float:
-    r"""
-    Compute the constant $C_H$ for a given Hurst exponent `hurst`
+    """
+    Compute the constant C_H for a given Hurst exponent `hurst`
     """
     num = hurst.h2 * gamma(2 - hurst.hp)
     den = gamma(hurst.hp) * gamma(2 - hurst.h2)
@@ -90,7 +89,7 @@ def sigma_lognormal_jim(volvol: float, hurst: Hurst, T: float = 1., delta: float
     def integrand(s):
         inner = (T - s + delta)**hurst.hp - (T - s)**hurst.hp
         return inner**2
-    return quad(integrand, 0, T)[0]
+    return factor * quad(integrand, 0, T)[0]
 
 
 def mu_lognormal(exp_vix: float, exp_vix_squared: float) -> float:
@@ -208,11 +207,13 @@ def f_supH(theta: float, hurst: Hurst, T: float = 1.) -> float:
     return factor * quad(integrand, 0, T)[0]
 
 
-def cvxpy_exponential(a: float, x: cp.Variable):
-    """
-    Cvxpy-friendly exponentiation
-    """
-    return cp.exp(cp.multiply(cp.log(a), x))
+def eta_to_nu(eta: float, hurst: Hurst):
+    r"""Convert between $\eta$ and $\nu$"""
+    return eta * c_h(hurst) * np.sqrt(hurst.h2) / 2.
+
+def nu_to_eta(nu: float, hurst: Hurst):
+    r"""Convert between $\nu$ and $\eta$"""
+    return 2. * nu / (c_h(hurst) * np.sqrt(hurst.h2))
 
 
 def BSFormula(S, K, t, r, vol, callPutFlag: int):
