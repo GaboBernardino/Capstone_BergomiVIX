@@ -28,7 +28,7 @@ Core of the research - runs the calibration over the whole sample and examines t
 
 3. `are_you_reruira.ipynb`:
 
-:warning: @Nicco add something here for the trading strategy notebook
+Contains the backtesting of the trading strategy, both the long-short and short only case.
 
 4. `macarons_days.ipynb`:
 
